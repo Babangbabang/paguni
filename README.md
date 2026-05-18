@@ -27,7 +27,7 @@
 
 
 
-Manual Install (VSIX)
+## Manual Install (VSIX)
 
 1. Download paguni-0.0.1.vsix
 
@@ -37,14 +37,17 @@ Manual Install (VSIX)
 
 4. Select the downloaded file
 
-From Source
+## From Source
 
 git clone https://github.com/Babangbabang/paguni.git
 cd paguni
 npm install
-# Press F5 to run extension development host
+
+## Press F5 to run extension development host
+
 
 🚀 Usage
+
 
 1. Create a New Page
 
