@@ -1,0 +1,162 @@
+{
+  "name": "maroli",
+  "displayName": "paguni",
+  "description": "Page Navigator - List and navigate to page sections",
+  "version": "0.0.1",
+   "publisher": "Babangbabang",   
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Babangbabang/paguni"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Navigation"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:markdown",
+    "onLanguage:plaintext",
+    "onLanguage:html",
+    "onCommand:extension.listPages",
+    "onView:pageExplorer"
+  ],
+   "contributes": {
+    "commands": [
+      {
+        "command": "extension.createCompletePage",
+        "title": "Page: Create Complete Page"
+      },
+      {
+        "command": "extension.createPageOpener",
+        "title": "Page: Create Page Opener Only"
+      },
+      {
+        "command": "extension.createPageCloser",
+        "title": "Page: Create Page Closer Only"
+      },
+      {
+        "command": "extension.createMultiplePages",
+        "title": "Page: Create Multiple Pages"
+      },
+      {
+        "command": "extension.listPages",
+        "title": "Page: List Pages"
+      },
+      {
+        "command": "extension.refreshPages",
+        "title": "Page: Refresh Pages"
+      },
+      {
+        "command": "extension.openPageSync",
+        "title": "Page: Open Page with Auto-Sync"
+      },
+      {
+        "command": "extension.syncAllPages",
+        "title": "Page: Sync All Open Pages"
+      },
+      {
+        "command": "extension.closeAllPages",
+        "title": "Page: Close All Page Editors"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "paguni",
+          "title": "Paguni",
+          "icon": "$(symbol-book)"
+        }
+      ]
+    },
+    "views": {
+      "paguni-container": [
+        {
+          "id": "pageExplorer",
+          "name": "Page Explorer"
+        }
+      ]
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "extension.listPages",
+          "group": "navigation",
+          "when": "editorTextFocus"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "extension.refreshPages",
+          "group": "navigation",
+          "when": "view == pageExplorer"
+        },
+        {
+          "command": "extension.syncAllPages",
+          "group": "navigation",
+          "when": "view == pageExplorer"
+        },
+        {
+          "command": "extension.closeAllPages",
+          "group": "navigation",
+          "when": "view == pageExplorer"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "extension.openPageSync",
+          "group": "navigation",
+          "when": "view == pageExplorer && viewItem == pageItem"
+        },
+        {
+          "command": "extension.listPages",
+          "group": "navigation",
+          "when": "view == pageExplorer && viewItem == pageItem"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "extension.createCompletePage",
+        "key": "ctrl+shift+p p",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "extension.createPageOpener",
+        "key": "ctrl+shift+p o",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "extension.createPageCloser",
+        "key": "ctrl+shift+p c",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "extension.createMultiplePages",
+        "key": "ctrl+shift+p m",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "extension.listPages",
+        "key": "ctrl+shift+g",
+        "when": "editorTextFocus"
+      }
+    ]
+  }
+,
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "eslint": "^9.39.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
