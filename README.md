@@ -46,10 +46,10 @@ npm install
 ## Press F5 to run extension development host
 
 
-🚀 Usage
+### 🚀 Usage
 
 
-1. Create a New Page
+#### 1. Create a New Page
 
 Basic format:
 
@@ -57,7 +57,9 @@ Basic format:
 Your page content here...
 <!-- ## Page Home End ## -->
 
+
 Supported formats:
+
 
 Format	        Example
 
