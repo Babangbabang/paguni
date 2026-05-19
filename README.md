@@ -53,9 +53,12 @@ npm install
 
 Basic format:
 
+Gunakan marker untuk menandai halaman di file:
+```html
 <!-- ## Page Home ## -->
 Your page content here...
 <!-- ## Page Home End ## -->
+
 
 
 Supported formats:
