@@ -56,10 +56,6 @@
       {
         "command": "extension.syncAllPages",
         "title": "Page: Sync All Open Pages"
-      },
-      {
-        "command": "extension.closeAllPages",
-        "title": "Page: Close All Page Editors"
       }
     ],
     "viewsContainers": {
@@ -95,11 +91,6 @@
         },
         {
           "command": "extension.syncAllPages",
-          "group": "navigation",
-          "when": "view == pageExplorer"
-        },
-        {
-          "command": "extension.closeAllPages",
           "group": "navigation",
           "when": "view == pageExplorer"
         }
