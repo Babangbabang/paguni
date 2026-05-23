@@ -710,18 +710,19 @@ class PageExplorerProvider {
                 title: 'Sync All Pages'
             };
             
-            const closeAllItem = new PageTreeItem(
-                `❌ Close All Page Editors`,
-                `Close all open page editors`,
-                vscode.TreeItemCollapsibleState.None
-            );
-            closeAllItem.iconPath = new vscode.ThemeIcon('close-all');
-            closeAllItem.command = {
-                command: 'extension.closeAllPages',
-                title: 'Close All Pages'
-            };
+            // const closeAllItem = new PageTreeItem(
+            //     `❌ Close All Page Editors`,
+            //     `Close all open page editors`,
+            //     vscode.TreeItemCollapsibleState.None
+            // );
+            // closeAllItem.iconPath = new vscode.ThemeIcon('close-all');
+            // closeAllItem.command = {
+            //     command: 'extension.closeAllPages',
+            //     title: 'Close All Pages'
+            // };
             
-            return [summaryItem, syncAllItem, closeAllItem, ...pageItems];
+            // return [summaryItem, syncAllItem, closeAllItem, ...pageItems];
+            return [summaryItem, syncAllItem,  ...pageItems];
         }
         return [];
     }
