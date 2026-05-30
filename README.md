@@ -3,7 +3,7 @@
 
 > **Paguni** is a VS Code extension that helps you manage and navigate page sections within a single file. With real-time auto-sync, you can edit pages in separate editors and changes are automatically saved back to the original file! 🚀
 
-[![Version](https://img.shields.io/badge/version-0.0.1-blue.svg)](https://github.com/Babangbabang/paguni)
+[![Version](https://img.shields.io/badge/version-0.0.2-blue.svg)](https://github.com/Babangbabang/paguni)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.85.0+-blue.svg)](https://code.visualstudio.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -29,7 +29,7 @@
 
 ## Manual Install (VSIX)
 
-1. Download paguni-0.0.1.vsix
+1. Download paguni-0.0.2.vsix
 
 2. Open VS Code → Extensions (Ctrl+Shift+X)
 
@@ -175,7 +175,7 @@ Build VSIX
 
 npm install -g @vscode/vsce
 vsce package
-# Output: paguni-0.0.1.vsix
+# Output: paguni-0.0.2.vsix
 
 ❓ FAQ
 Q: Do page names have to be numbers?
@@ -199,6 +199,8 @@ Pages without an End marker will include all lines until the end of file
 Markers must be at the beginning of a line (no indentation)
 
 Page names are case-sensitive
+
+Do not open the page in duplicate, for example the "about" page, do not open it again
 
 📄 License
 MIT © Babangbabang
