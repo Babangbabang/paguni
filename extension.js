@@ -1,10 +1,11 @@
 const vscode = require('vscode');
 
-// Store active page editors untuk sync
+// Store active page editors
 const activePageEditors = new Map();
+let isSyncing = false;
 
 function activate(context) {
-    console.log('Paguni extension is now active!');
+    console.log('Paguni extension activated');
 
     const pageProvider = new PageExplorerProvider();
     
@@ -17,7 +18,6 @@ function activate(context) {
 
     // ============ CREATE PAGE COMMANDS ============
     
-    // Command: Create Complete Page (pembuka + konten + penutup)
     let createCompletePageCommand = vscode.commands.registerCommand('extension.createCompletePage', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -25,7 +25,6 @@ function activate(context) {
             return;
         }
         
-        // Minta nama page
         const pageName = await vscode.window.showInputBox({
             prompt: 'Enter page name',
             placeHolder: 'e.g., Home, About Us, Contact',
@@ -39,27 +38,23 @@ function activate(context) {
         
         if (!pageName) return;
         
-        // Pilih format komentar
         const format = await vscode.window.showQuickPick([
-            { label: 'No Comment', value: 'plain', description: '## Page Name ##' },
             { label: 'HTML Comment', value: 'html', description: '<!-- ## Page Name ## -->' },
-            { label: 'JS Comment', value: 'js', description: '// ## Page Name ##' },
-            { label: 'Multiline Comment', value: 'multiline', description: '/* ## Page Name ## */' }
+            { label: 'JavaScript/CSS/PHP', value: 'js', description: '// ## Page Name ##' },
+            { label: 'Multiline Comment', value: 'multiline', description: '/* ## Page Name ## */' },
+            { label: 'No Comment', value: 'plain', description: '## Page Name ##' },
+            { label: 'Python/Ruby', value: 'hash', description: '# ## Page Name ##' },
+            { label: 'XML/ASP', value: 'xml', description: '<%-- ## Page Name ## --%>' }
         ], {
             placeHolder: 'Select comment format'
         });
         
         if (!format) return;
         
-        // Buat marker berdasarkan format
         let startMarker, endMarker;
         const trimmedName = pageName.trim();
         
         switch (format.value) {
-            case 'plain':
-                startMarker = `## Page ${trimmedName} ##`;
-                endMarker = `## Page ${trimmedName} End ##`;
-                break;
             case 'html':
                 startMarker = `<!-- ## Page ${trimmedName} ## -->`;
                 endMarker = `<!-- ## Page ${trimmedName} End ## -->`;
@@ -72,23 +67,33 @@ function activate(context) {
                 startMarker = `/* ## Page ${trimmedName} ## */`;
                 endMarker = `/* ## Page ${trimmedName} End ## */`;
                 break;
+            case 'plain':
+                startMarker = `## Page ${trimmedName} ##`;
+                endMarker = `## Page ${trimmedName} End ##`;
+                break;
+            case 'hash':
+                startMarker = `# ## Page ${trimmedName} ##`;
+                endMarker = `# ## Page ${trimmedName} End ##`;
+                break;
+            case 'xml':
+                startMarker = `<%-- ## Page ${trimmedName} ## --%>`;
+                endMarker = `<%-- ## Page ${trimmedName} End ## --%>`;
+                break;
             default:
                 startMarker = `## Page ${trimmedName} ##`;
                 endMarker = `## Page ${trimmedName} End ##`;
         }
         
-        // Template konten
-        const template = `${startMarker}\n// Your content here\n${endMarker}`;
+        const template = `${startMarker}\n\n${endMarker}`;
         
-        // Insert di posisi kursor
         await editor.edit(editBuilder => {
             editBuilder.insert(editor.selection.active, template);
         });
         
-        vscode.window.showInformationMessage(`✅ Created complete page: "${trimmedName}"`);
+        vscode.window.showInformationMessage(`✅ Created page: "${trimmedName}" (${format.label})`);
+        pageProvider.refresh();
     });
     
-    // Command: Create Page Opener (start marker only)
     let createPageOpenerCommand = vscode.commands.registerCommand('extension.createPageOpener', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -96,40 +101,29 @@ function activate(context) {
             return;
         }
         
-        // Minta nama page
         const pageName = await vscode.window.showInputBox({
-            prompt: 'Enter page name for opener',
-            placeHolder: 'e.g., Home, About Us, Contact',
-            validateInput: (value) => {
-                if (!value || value.trim().length === 0) {
-                    return 'Page name cannot be empty';
-                }
-                return null;
-            }
+            prompt: 'Enter page name',
+            placeHolder: 'e.g., Home, About Us, Contact'
         });
         
         if (!pageName) return;
         
-        // Pilih format komentar
         const format = await vscode.window.showQuickPick([
-            { label: 'No Comment', value: 'plain', description: '## Page Name ##' },
             { label: 'HTML Comment', value: 'html', description: '<!-- ## Page Name ## -->' },
-            { label: 'JS Comment', value: 'js', description: '// ## Page Name ##' },
-            { label: 'Multiline Comment', value: 'multiline', description: '/* ## Page Name ## */' }
+            { label: 'JavaScript/CSS/PHP', value: 'js', description: '// ## Page Name ##' },
+            { label: 'Multiline Comment', value: 'multiline', description: '/* ## Page Name ## */' },
+            { label: 'No Comment', value: 'plain', description: '## Page Name ##' },
+            { label: 'Python/Ruby', value: 'hash', description: '# ## Page Name ##' }
         ], {
             placeHolder: 'Select comment format'
         });
         
         if (!format) return;
         
-        // Buat opener marker
-        let opener;
         const trimmedName = pageName.trim();
+        let opener;
         
         switch (format.value) {
-            case 'plain':
-                opener = `## Page ${trimmedName} ##`;
-                break;
             case 'html':
                 opener = `<!-- ## Page ${trimmedName} ## -->`;
                 break;
@@ -139,23 +133,24 @@ function activate(context) {
             case 'multiline':
                 opener = `/* ## Page ${trimmedName} ## */`;
                 break;
+            case 'plain':
+                opener = `## Page ${trimmedName} ##`;
+                break;
+            case 'hash':
+                opener = `# ## Page ${trimmedName} ##`;
+                break;
             default:
                 opener = `## Page ${trimmedName} ##`;
         }
         
-        // Insert di posisi kursor
         await editor.edit(editBuilder => {
             editBuilder.insert(editor.selection.active, opener);
         });
         
-        // Pindahkan kursor ke baris berikutnya untuk memudahkan pengetikan konten
-        const newPosition = editor.selection.active.translate(1, 0);
-        editor.selection = new vscode.Selection(newPosition, newPosition);
-        
         vscode.window.showInformationMessage(`✅ Created page opener: "${trimmedName}"`);
+        pageProvider.refresh();
     });
     
-    // Command: Create Page Closer (end marker only)
     let createPageCloserCommand = vscode.commands.registerCommand('extension.createPageCloser', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -163,40 +158,29 @@ function activate(context) {
             return;
         }
         
-        // Minta nama page
         const pageName = await vscode.window.showInputBox({
-            prompt: 'Enter page name for closer',
-            placeHolder: 'e.g., Home, About Us, Contact',
-            validateInput: (value) => {
-                if (!value || value.trim().length === 0) {
-                    return 'Page name cannot be empty';
-                }
-                return null;
-            }
+            prompt: 'Enter page name',
+            placeHolder: 'e.g., Home, About Us, Contact'
         });
         
         if (!pageName) return;
         
-        // Pilih format komentar
         const format = await vscode.window.showQuickPick([
-            { label: 'No Comment', value: 'plain', description: '## Page Name End ##' },
             { label: 'HTML Comment', value: 'html', description: '<!-- ## Page Name End ## -->' },
-            { label: 'JS Comment', value: 'js', description: '// ## Page Name End ##' },
-            { label: 'Multiline Comment', value: 'multiline', description: '/* ## Page Name End ## */' }
+            { label: 'JavaScript/CSS/PHP', value: 'js', description: '// ## Page Name End ##' },
+            { label: 'Multiline Comment', value: 'multiline', description: '/* ## Page Name End ## */' },
+            { label: 'No Comment', value: 'plain', description: '## Page Name End ##' },
+            { label: 'Python/Ruby', value: 'hash', description: '# ## Page Name End ##' }
         ], {
             placeHolder: 'Select comment format'
         });
         
         if (!format) return;
         
-        // Buat closer marker
-        let closer;
         const trimmedName = pageName.trim();
+        let closer;
         
         switch (format.value) {
-            case 'plain':
-                closer = `## Page ${trimmedName} End ##`;
-                break;
             case 'html':
                 closer = `<!-- ## Page ${trimmedName} End ## -->`;
                 break;
@@ -206,19 +190,24 @@ function activate(context) {
             case 'multiline':
                 closer = `/* ## Page ${trimmedName} End ## */`;
                 break;
+            case 'plain':
+                closer = `## Page ${trimmedName} End ##`;
+                break;
+            case 'hash':
+                closer = `# ## Page ${trimmedName} End ##`;
+                break;
             default:
                 closer = `## Page ${trimmedName} End ##`;
         }
         
-        // Insert di posisi kursor
         await editor.edit(editBuilder => {
             editBuilder.insert(editor.selection.active, closer);
         });
         
         vscode.window.showInformationMessage(`✅ Created page closer: "${trimmedName}"`);
+        pageProvider.refresh();
     });
     
-    // Command: Create Multiple Pages at Once
     let createMultiplePagesCommand = vscode.commands.registerCommand('extension.createMultiplePages', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -226,48 +215,35 @@ function activate(context) {
             return;
         }
         
-        // Minta daftar nama page (pisahkan dengan koma)
         const pageNamesInput = await vscode.window.showInputBox({
             prompt: 'Enter page names separated by commas',
-            placeHolder: 'Home, About, Contact, Products',
-            validateInput: (value) => {
-                if (!value || value.trim().length === 0) {
-                    return 'Page names cannot be empty';
-                }
-                return null;
-            }
+            placeHolder: 'Home, About, Contact'
         });
         
         if (!pageNamesInput) return;
         
         const pageNames = pageNamesInput.split(',').map(name => name.trim()).filter(name => name.length > 0);
-        
         if (pageNames.length === 0) return;
         
-        // Pilih format
         const format = await vscode.window.showQuickPick([
-            { label: 'No Comment', value: 'plain', description: '## Page Name ##' },
-            { label: 'HTML Comment', value: 'html', description: '<!-- ## Page Name ## -->' }
+            { label: 'HTML Comment', value: 'html', description: '<!-- ## Page Name ## -->' },
+            { label: 'JavaScript/CSS/PHP', value: 'js', description: '// ## Page Name ##' },
+            { label: 'No Comment', value: 'plain', description: '## Page Name ##' }
         ], {
             placeHolder: 'Select comment format'
         });
         
         if (!format) return;
         
-        // Buat semua page
         let pagesContent = '';
         for (const pageName of pageNames) {
-            let startMarker, endMarker;
-            
-            if (format.value === 'plain') {
-                startMarker = `## Page ${pageName} ##`;
-                endMarker = `## Page ${pageName} End ##`;
+            if (format.value === 'html') {
+                pagesContent += `<!-- ## Page ${pageName} ## -->\n\n<!-- ## Page ${pageName} End ## -->\n\n`;
+            } else if (format.value === 'js') {
+                pagesContent += `// ## Page ${pageName} ##\n\n// ## Page ${pageName} End ##\n\n`;
             } else {
-                startMarker = `<!-- ## Page ${pageName} ## -->`;
-                endMarker = `<!-- ## Page ${pageName} End ## -->`;
+                pagesContent += `## Page ${pageName} ##\n\n## Page ${pageName} End ##\n\n`;
             }
-            
-            pagesContent += `${startMarker}\n// Content for ${pageName}\n${endMarker}\n\n`;
         }
         
         await editor.edit(editBuilder => {
@@ -275,14 +251,13 @@ function activate(context) {
         });
         
         vscode.window.showInformationMessage(`✅ Created ${pageNames.length} pages`);
+        pageProvider.refresh();
     });
     
-    // ============ EXISTING COMMANDS ============
+    // ============ LIST PAGES COMMAND ============
     
-    // Command: List Pages
     let listPagesCommand = vscode.commands.registerCommand('extension.listPages', async (args) => {
         const editor = vscode.window.activeTextEditor;
-        
         if (!editor) {
             vscode.window.showWarningMessage('No active editor found!');
             return;
@@ -296,36 +271,29 @@ function activate(context) {
         const pages = parsePages(editor.document);
         
         if (pages.length === 0) {
-            vscode.window.showInformationMessage('No pages found. Format: ## Page Nama ## ... ## Page Nama End ##');
+            vscode.window.showInformationMessage('No pages found. Format: ## Page Name ## ... ## Page Name End ##');
             return;
         }
 
         const items = pages.map(page => ({
             label: `📄 ${page.pageName}`,
-            description: `Lines ${page.startLine + 1}-${page.endLine + 1}`,
-            detail: page.originalText,
+            description: `${page.format} | Line ${page.startLine + 1} - ${page.endLine + 1}`,
             page: page
         }));
 
         const selected = await vscode.window.showQuickPick(items, {
             placeHolder: 'Select a page to open',
-            matchOnDescription: true,
-            matchOnDetail: true
+            matchOnDescription: true
         });
 
         if (selected) {
-            await openPageWithSync(editor.document, selected.page);
+            await openPageInEditor(editor.document, selected.page);
         }
     });
 
-    // Command: Refresh Pages
-    let refreshCommand = vscode.commands.registerCommand('extension.refreshPages', () => {
-        pageProvider.refresh();
-        vscode.window.showInformationMessage('Pages list refreshed!');
-    });
-
-    // Command: Open Page with Sync
-    let openPageSyncCommand = vscode.commands.registerCommand('extension.openPageSync', async (param) => {
+    // ============ OPEN PAGE ============
+    
+    let openPageCommand = vscode.commands.registerCommand('extension.openPageSync', async (param) => {
         let targetPage = null;
         
         if (param && param.pageData) {
@@ -336,46 +304,33 @@ function activate(context) {
             targetPage = param;
         }
         
-        if (!targetPage && vscode.window.activeTextEditor) {
-            const editor = vscode.window.activeTextEditor;
-            const cursorPosition = editor.selection.active;
-            const pages = parsePages(editor.document);
-            targetPage = pages.find(p => 
-                cursorPosition.line >= p.startLine && 
-                cursorPosition.line <= p.endLine
-            );
-        }
-        
         if (!targetPage) {
             vscode.window.showErrorMessage('No page selected!');
             return;
         }
         
         const originalDoc = vscode.window.activeTextEditor.document;
-        await openPageWithSync(originalDoc, targetPage);
+        await openPageInEditor(originalDoc, targetPage);
     });
 
-    // Command: Sync All Open Pages
+    // ============ SYNC COMMANDS ============
+    
+    let refreshCommand = vscode.commands.registerCommand('extension.refreshPages', () => {
+        pageProvider.refresh();
+        vscode.window.showInformationMessage('Pages refreshed!');
+    });
+
     let syncAllCommand = vscode.commands.registerCommand('extension.syncAllPages', async () => {
-        let syncedCount = 0;
+        let count = 0;
         for (const [uri, data] of activePageEditors) {
             try {
-                await syncPageToOriginal(data.editor, data.page, data.originalDoc);
-                syncedCount++;
+                await syncPageToOriginal(data);
+                count++;
             } catch (error) {
-                console.error(`Failed to sync ${uri}:`, error);
+                console.error(`Sync failed:`, error);
             }
         }
-        vscode.window.showInformationMessage(`Synced ${syncedCount} page(s) to original file`);
-    });
-
-    // Command: Close All Page Editors
-    let closeAllPagesCommand = vscode.commands.registerCommand('extension.closeAllPages', async () => {
-        for (const [uri, data] of activePageEditors) {
-            await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
-        }
-        activePageEditors.clear();
-        vscode.window.showInformationMessage('Closed all page editors');
+        vscode.window.showInformationMessage(`Synced ${count} page(s)`);
     });
 
     context.subscriptions.push(
@@ -383,43 +338,57 @@ function activate(context) {
         createPageOpenerCommand,
         createPageCloserCommand,
         createMultiplePagesCommand,
-        listPagesCommand, 
+        listPagesCommand,
         refreshCommand,
-        openPageSyncCommand,
-        syncAllCommand,
-        closeAllPagesCommand
+        openPageCommand,
+        syncAllCommand
     );
 
-    // Listen untuk perubahan di page editor (auto-sync)
+    // ============ AUTO-SYNC: Page Editor -> Original ============
+    
     vscode.workspace.onDidChangeTextDocument((event) => {
+        if (isSyncing) return;
+        
         const uri = event.document.uri.toString();
         if (activePageEditors.has(uri)) {
             const data = activePageEditors.get(uri);
             clearTimeout(data.timeout);
             data.timeout = setTimeout(() => {
-                syncPageToOriginal(data.editor, data.page, data.originalDoc);
-            }, 500);
+                syncPageToOriginal(data);
+            }, 300);
         }
     });
 
-    // Cleanup ketika editor ditutup
+    // ============ AUTO-SYNC: Original -> Page Editor ============
+    
+    vscode.workspace.onDidChangeTextDocument(async (event) => {
+        if (isSyncing) return;
+        
+        for (const [uri, data] of activePageEditors) {
+            if (event.document.uri.toString() === data.originalUri) {
+                clearTimeout(data.originalTimeout);
+                data.originalTimeout = setTimeout(async () => {
+                    await syncOriginalToPageEditor(data);
+                }, 300);
+            }
+        }
+        
+        const editor = vscode.window.activeTextEditor;
+        if (editor && event.document === editor.document && !activePageEditors.has(event.document.uri.toString())) {
+            pageProvider.refresh();
+        }
+    });
+
+    // ============ CLEANUP ============
+    
     vscode.workspace.onDidCloseTextDocument((document) => {
         const uri = document.uri.toString();
         if (activePageEditors.has(uri)) {
             const data = activePageEditors.get(uri);
             clearTimeout(data.timeout);
-            if (data.statusBarItem) {
-                data.statusBarItem.dispose();
-            }
+            clearTimeout(data.originalTimeout);
+            if (data.statusBarItem) data.statusBarItem.dispose();
             activePageEditors.delete(uri);
-        }
-    });
-
-    // Refresh ketika dokumen berubah
-    vscode.workspace.onDidChangeTextDocument((event) => {
-        const editor = vscode.window.activeTextEditor;
-        if (editor && event.document === editor.document && !activePageEditors.has(event.document.uri.toString())) {
-            pageProvider.refresh();
         }
     });
 
@@ -428,222 +397,275 @@ function activate(context) {
     });
 }
 
-// ============ EXISTING FUNCTIONS (same as before) ============
+// ============ CORE FUNCTIONS ============
 
-async function openPageWithSync(originalDoc, page, viewColumn = vscode.ViewColumn.Beside) {
+async function openPageInEditor(originalDoc, page, viewColumn = vscode.ViewColumn.Beside) {
+    // Ambil konten page dari original file
     const lines = originalDoc.getText().split('\n');
     const pageLines = lines.slice(page.startLine, page.endLine + 1);
     const pageContent = pageLines.join('\n');
     
-    const originalFileName = originalDoc.fileName.replace(/\.\w+$/, '');
-    const extension = originalDoc.fileName.split('.').pop();
-    const fileName = `${originalFileName}_${page.pageName.replace(/\s+/g, '_')}.${extension}`;
-    
-    const pageDocument = await vscode.workspace.openTextDocument({
+    // Buat dokumen baru
+    const doc = await vscode.workspace.openTextDocument({
         content: pageContent,
         language: originalDoc.languageId
     });
     
-    const pageEditor = await vscode.window.showTextDocument(pageDocument, {
+    const editor = await vscode.window.showTextDocument(doc, {
         viewColumn: viewColumn,
         preview: false,
         preserveFocus: false
     });
     
-    const uri = pageDocument.uri.toString();
+    // Simpan data
+    const uri = doc.uri.toString();
     activePageEditors.set(uri, {
-        editor: pageEditor,
-        page: page,
+        editor: editor,
+        page: { ...page },
         originalDoc: originalDoc,
         originalUri: originalDoc.uri.toString(),
-        timeout: null
+        originalStartLine: page.startLine,
+        originalEndLine: page.endLine,
+        timeout: null,
+        originalTimeout: null,
+        statusBarItem: null
     });
     
+    // Status bar
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    statusBarItem.text = `$(sync) Syncing: ${page.pageName}`;
-    statusBarItem.tooltip = `Auto-syncing to original file: ${originalDoc.fileName}`;
-    statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+    statusBarItem.text = `$(sync) ${page.pageName}`;
+    statusBarItem.tooltip = `Editing: ${page.pageName} (${page.format})`;
     statusBarItem.show();
-    
     activePageEditors.get(uri).statusBarItem = statusBarItem;
     
-    highlightMarkers(pageEditor, pageLines);
+    // Highlight markers
+    highlightMarkers(editor, pageLines);
     
-    vscode.window.showInformationMessage(
-        `📄 Opened "${page.pageName}" with auto-sync enabled`,
-        'Go to Original'
-    ).then(selection => {
-        if (selection === 'Go to Original') {
-            vscode.window.showTextDocument(originalDoc, vscode.ViewColumn.One);
-        }
-    });
-    
-    return pageEditor;
+    vscode.window.showInformationMessage(`Opened "${page.pageName}"`);
+    return editor;
 }
 
-async function syncPageToOriginal(pageEditor, page, originalDoc) {
+async function syncPageToOriginal(data) {
+    if (isSyncing) return;
+    isSyncing = true;
+    
     try {
+        const pageEditor = data.editor;
+        const page = data.page;
+        const originalDoc = data.originalDoc;
+        
+        // Baca konten dari page editor
         const editedContent = pageEditor.document.getText();
         const editedLines = editedContent.split('\n');
         
+        // Baca konten original
         const originalContent = originalDoc.getText();
         const originalLines = originalContent.split('\n');
         
+        // Cari ulang posisi page di original
+        const currentPages = parsePages(originalDoc);
+        const currentPage = currentPages.find(p => p.pageName === page.pageName);
+        
+        if (!currentPage) {
+            console.warn(`Page "${page.pageName}" not found in original`);
+            return;
+        }
+        
+        // Update posisi
+        const startLine = currentPage.startLine;
+        const endLine = currentPage.endLine;
+        
+        // HANYA ganti bagian dalam marker, sisanya tetap
         const newLines = [
-            ...originalLines.slice(0, page.startLine),
+            ...originalLines.slice(0, startLine),
             ...editedLines,
-            ...originalLines.slice(page.endLine + 1)
+            ...originalLines.slice(endLine + 1)
         ];
         
         const newContent = newLines.join('\n');
         
-        const edit = new vscode.WorkspaceEdit();
-        const fullRange = new vscode.Range(
-            new vscode.Position(0, 0),
-            new vscode.Position(originalLines.length, 0)
-        );
-        edit.replace(originalDoc.uri, fullRange, newContent);
-        
-        await vscode.workspace.applyEdit(edit);
-        
-        const newEndLine = page.startLine + editedLines.length - 1;
-        if (newEndLine !== page.endLine) {
-            page.endLine = newEndLine;
+        // Hanya sync jika ada perubahan
+        if (newContent !== originalContent) {
+            const edit = new vscode.WorkspaceEdit();
+            const fullRange = new vscode.Range(
+                new vscode.Position(0, 0),
+                new vscode.Position(originalLines.length, 0)
+            );
+            edit.replace(originalDoc.uri, fullRange, newContent);
+            await vscode.workspace.applyEdit(edit);
+            
+            // Update status bar
+            if (data.statusBarItem) {
+                data.statusBarItem.text = `$(check) ${page.pageName}`;
+                setTimeout(() => {
+                    if (data.statusBarItem) data.statusBarItem.text = `$(sync) ${page.pageName}`;
+                }, 1500);
+            }
         }
         
-        const data = activePageEditors.get(pageEditor.document.uri.toString());
-        if (data && data.statusBarItem) {
-            data.statusBarItem.text = `$(check) Synced: ${page.pageName}`;
-            data.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.prominentBackground');
-            setTimeout(() => {
-                if (data.statusBarItem) {
-                    data.statusBarItem.text = `$(sync) Syncing: ${page.pageName}`;
-                    data.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
-                }
-            }, 2000);
-        }
+        // Refresh explorer
+        const provider = new PageExplorerProvider();
+        provider.refresh();
         
-        return true;
     } catch (error) {
-        console.error('Sync failed:', error);
-        vscode.window.showErrorMessage(`Failed to sync "${page.pageName}": ${error.message}`);
-        return false;
+        console.error('Sync to original error:', error);
+    } finally {
+        isSyncing = false;
+    }
+}
+
+async function syncOriginalToPageEditor(data) {
+    if (isSyncing) return;
+    isSyncing = true;
+    
+    try {
+        const originalDoc = data.originalDoc;
+        const page = data.page;
+        const pageEditor = data.editor;
+        
+        // Parse ulang original
+        const pages = parsePages(originalDoc);
+        const currentPage = pages.find(p => p.pageName === page.pageName);
+        
+        if (!currentPage) {
+            console.warn(`Page "${page.pageName}" not found`);
+            return;
+        }
+        
+        // Update posisi di data
+        page.startLine = currentPage.startLine;
+        page.endLine = currentPage.endLine;
+        
+        // Ambil konten dari original (HANYA dalam marker)
+        const originalLines = originalDoc.getText().split('\n');
+        const pageLines = originalLines.slice(page.startLine, page.endLine + 1);
+        const newContent = pageLines.join('\n');
+        
+        const currentContent = pageEditor.document.getText();
+        
+        if (newContent !== currentContent) {
+            const edit = new vscode.WorkspaceEdit();
+            const fullRange = new vscode.Range(
+                new vscode.Position(0, 0),
+                new vscode.Position(pageEditor.document.lineCount, 0)
+            );
+            edit.replace(pageEditor.document.uri, fullRange, newContent);
+            await vscode.workspace.applyEdit(edit);
+            
+            if (data.statusBarItem) {
+                data.statusBarItem.text = `$(sync) ${page.pageName}`;
+            }
+        }
+        
+    } catch (error) {
+        console.error('Sync to editor error:', error);
+    } finally {
+        isSyncing = false;
     }
 }
 
 function highlightMarkers(editor, pageLines) {
-    const startMarkerRange = new vscode.Range(0, 0, 0, pageLines[0].length);
-    const endMarkerRange = new vscode.Range(
+    if (pageLines.length === 0) return;
+    
+    const startRange = new vscode.Range(0, 0, 0, pageLines[0].length);
+    const endRange = new vscode.Range(
         pageLines.length - 1, 
         0, 
         pageLines.length - 1, 
         pageLines[pageLines.length - 1].length
     );
     
-    const decorationType = vscode.window.createTextEditorDecorationType({
+    const decoration = vscode.window.createTextEditorDecorationType({
         backgroundColor: 'rgba(100, 200, 100, 0.15)',
-        borderRadius: '3px',
-        fontStyle: 'italic'
+        borderRadius: '3px'
     });
     
-    editor.setDecorations(decorationType, [startMarkerRange, endMarkerRange]);
+    editor.setDecorations(decoration, [startRange, endRange]);
 }
 
 function parsePages(document) {
     const pages = [];
     const lines = document.getText().split('\n');
     
-    const startPatterns = [
-        { regex: /^##\s*Page\s+(.+?)\s*##$/i, type: 'plain' },
-        { regex: /^<!--\s*##\s*Page\s+(.+?)\s*##\s*-->$/i, type: 'html' },
-        { regex: /^\/\/\s*##\s*Page\s+(.+?)\s*##$/i, type: 'js' },
-        { regex: /^\/\*\s*##\s*Page\s+(.+?)\s*##\s*\*\/$/i, type: 'multiline' }
-    ];
-    
-    const endPatterns = [
-        { regex: /^##\s*Page\s+(.+?)\s+End\s*##$/i, type: 'plain' },
-        { regex: /^<!--\s*##\s*Page\s+(.+?)\s+End\s*##\s*-->$/i, type: 'html' },
-        { regex: /^\/\/\s*##\s*Page\s+(.+?)\s+End\s*##$/i, type: 'js' },
-        { regex: /^\/\*\s*##\s*Page\s+(.+?)\s+End\s*##\s*\*\/$/i, type: 'multiline' }
+    // Pattern untuk berbagai format komentar
+    const patterns = [
+        // HTML: <!-- ## Page Name ## -->
+        { start: /^<!--\s*##\s*Page\s+(.+?)\s*##\s*-->$/i, end: /^<!--\s*##\s*Page\s+(.+?)\s+End\s*##\s*-->$/i, format: 'html' },
+        
+        // JavaScript/CSS/PHP single line: // ## Page Name ##
+        { start: /^\/\/\s*##\s*Page\s+(.+?)\s*##$/i, end: /^\/\/\s*##\s*Page\s+(.+?)\s+End\s*##$/i, format: 'js' },
+        
+        // Multiline: /* ## Page Name ## */
+        { start: /^\/\*\s*##\s*Page\s+(.+?)\s*##\s*\*\/$/i, end: /^\/\*\s*##\s*Page\s+(.+?)\s+End\s*##\s*\*\/$/i, format: 'multiline' },
+        
+        // Plain: ## Page Name ##
+        { start: /^##\s*Page\s+(.+?)\s*##$/i, end: /^##\s*Page\s+(.+?)\s+End\s*##$/i, format: 'plain' },
+        
+        // Python/Ruby/PHP hash: # ## Page Name ##
+        { start: /^#\s*##\s*Page\s+(.+?)\s*##$/i, end: /^#\s*##\s*Page\s+(.+?)\s+End\s*##$/i, format: 'hash' },
+        
+        // XML/ASP: <%-- ## Page Name ## --%>
+        { start: /^<%--\s*##\s*Page\s+(.+?)\s*##\s*--%>$/i, end: /^<%--\s*##\s*Page\s+(.+?)\s+End\s*##\s*--%>$/i, format: 'xml' },
+        
+        // CSS multiline (sama dengan multiline)
+        // SQL comment: -- ## Page Name ##
+        { start: /^--\s*##\s*Page\s+(.+?)\s*##$/i, end: /^--\s*##\s*Page\s+(.+?)\s+End\s*##$/i, format: 'sql' }
     ];
     
     let currentPage = null;
-    let currentPatternType = null;
+    let currentPattern = null;
     
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const trimmedLine = line.trim();
         
+        // Cari start marker
         if (!currentPage) {
-            for (const pattern of startPatterns) {
-                const match = trimmedLine.match(pattern.regex);
+            for (const pattern of patterns) {
+                const match = trimmedLine.match(pattern.start);
                 if (match) {
-                    const pageName = match[1].trim();
                     currentPage = {
-                        pageName: pageName,
-                        originalText: trimmedLine,
+                        pageName: match[1].trim(),
+                        originalText: line,
                         startLine: i,
                         endLine: -1,
-                        contentLength: 0,
-                        patternType: pattern.type
+                        format: pattern.format
                     };
-                    currentPatternType = pattern.type;
+                    currentPattern = pattern;
                     break;
                 }
             }
-        } 
-        else {
-            const matchingEndPattern = endPatterns.find(p => p.type === currentPatternType);
-            if (matchingEndPattern) {
-                const endMatch = trimmedLine.match(matchingEndPattern.regex);
-                if (endMatch) {
-                    const endPageName = endMatch[1].trim();
-                    if (endPageName === currentPage.pageName) {
-                        currentPage.endLine = i;
-                        const contentLines = lines.slice(currentPage.startLine, i + 1);
-                        currentPage.contentLength = contentLines.join('\n').length;
-                        pages.push(currentPage);
-                        currentPage = null;
-                        currentPatternType = null;
-                    }
-                }
-            }
-            
-            if (currentPage && currentPage.endLine === -1) {
-                for (const pattern of endPatterns) {
-                    const endMatch = trimmedLine.match(pattern.regex);
-                    if (endMatch) {
-                        const endPageName = endMatch[1].trim();
-                        if (endPageName === currentPage.pageName) {
-                            currentPage.endLine = i;
-                            const contentLines = lines.slice(currentPage.startLine, i + 1);
-                            currentPage.contentLength = contentLines.join('\n').length;
-                            pages.push(currentPage);
-                            currentPage = null;
-                            currentPatternType = null;
-                            break;
-                        }
-                    }
+        }
+        
+        // Cari end marker
+        if (currentPage && currentPattern) {
+            const match = trimmedLine.match(currentPattern.end);
+            if (match) {
+                const endName = match[1].trim();
+                if (endName === currentPage.pageName) {
+                    currentPage.endLine = i;
+                    pages.push(currentPage);
+                    currentPage = null;
+                    currentPattern = null;
                 }
             }
         }
     }
     
+    // Handle page tanpa end marker
     if (currentPage) {
         currentPage.endLine = lines.length - 1;
-        const contentLines = lines.slice(currentPage.startLine);
-        currentPage.contentLength = contentLines.join('\n').length;
         pages.push(currentPage);
     }
     
+    console.log(`Found ${pages.length} pages:`, pages.map(p => `${p.pageName} (${p.format})`));
     return pages;
 }
 
 function navigateToPage(editor, page) {
     const position = new vscode.Position(page.startLine, 0);
-    const selection = new vscode.Selection(position, position);
-    editor.selection = selection;
-    editor.revealRange(selection, vscode.TextEditorRevealType.InCenter);
+    editor.selection = new vscode.Selection(position, position);
+    editor.revealRange(editor.selection, vscode.TextEditorRevealType.InCenter);
     vscode.window.showInformationMessage(`✓ Navigated to "${page.pageName}"`);
 }
 
@@ -665,64 +687,64 @@ class PageExplorerProvider {
         if (!element) {
             const editor = vscode.window.activeTextEditor;
             if (!editor) {
-                return [new PageTreeItem('📁 No active editor', 'Open a file to see pages', vscode.TreeItemCollapsibleState.None)];
+                return [new PageTreeItem('📁 No active editor', '', vscode.TreeItemCollapsibleState.None)];
             }
             
             const pages = parsePages(editor.document);
             
             if (pages.length === 0) {
-                return [new PageTreeItem('📄 No pages found', 'Use format: ## Page Nama ## ... ## Page Nama End ##', vscode.TreeItemCollapsibleState.None)];
+                return [new PageTreeItem('📄 No pages found', 'Use: ## Page Name ## ... ## Page Name End ##', vscode.TreeItemCollapsibleState.None)];
             }
             
-            const pageItems = pages.map(page => {
+            // Ikon berdasarkan format
+            const formatIcon = {
+                'html': '$(code)',
+                'js': '$(javascript)',
+                'multiline': '$(comment)',
+                'plain': '$(file-text)',
+                'hash': '$(python)',
+                'xml': '$(xml)',
+                'sql': '$(database)'
+            };
+            
+            const items = pages.map(page => {
+                const icon = formatIcon[page.format] || '$(book)';
                 const item = new PageTreeItem(
-                    `📄 ${page.pageName}`,
-                    `Lines ${page.startLine + 1}-${page.endLine + 1}`,
+                    `${icon} ${page.pageName}`,
+                    `${page.format} | Line ${page.startLine + 1} - ${page.endLine + 1}`,
                     vscode.TreeItemCollapsibleState.None
                 );
                 item.pageData = page;
                 item.iconPath = new vscode.ThemeIcon('book');
                 item.contextValue = 'pageItem';
-                item.tooltip = `Click to open "${page.pageName}" with auto-sync`;
+                item.tooltip = `Click to open "${page.pageName}" (${page.format})`;
                 item.command = {
                     command: 'extension.openPageSync',
-                    title: 'Open Page with Sync',
+                    title: 'Open Page',
                     arguments: [{ page: page }]
                 };
                 return item;
             });
             
-            const summaryItem = new PageTreeItem(
+            const summary = new PageTreeItem(
                 `📊 Total: ${pages.length} page(s)`,
-                `Found ${pages.length} pages`,
+                '',
                 vscode.TreeItemCollapsibleState.None
             );
-            summaryItem.iconPath = new vscode.ThemeIcon('info');
+            summary.iconPath = new vscode.ThemeIcon('info');
             
-            const syncAllItem = new PageTreeItem(
+            const syncAll = new PageTreeItem(
                 `🔄 Sync All Open Pages`,
-                `Sync all open page editors to original file`,
+                '',
                 vscode.TreeItemCollapsibleState.None
             );
-            syncAllItem.iconPath = new vscode.ThemeIcon('sync');
-            syncAllItem.command = {
+            syncAll.iconPath = new vscode.ThemeIcon('sync');
+            syncAll.command = {
                 command: 'extension.syncAllPages',
                 title: 'Sync All Pages'
             };
             
-            // const closeAllItem = new PageTreeItem(
-            //     `❌ Close All Page Editors`,
-            //     `Close all open page editors`,
-            //     vscode.TreeItemCollapsibleState.None
-            // );
-            // closeAllItem.iconPath = new vscode.ThemeIcon('close-all');
-            // closeAllItem.command = {
-            //     command: 'extension.closeAllPages',
-            //     title: 'Close All Pages'
-            // };
-            
-            // return [summaryItem, syncAllItem, closeAllItem, ...pageItems];
-            return [summaryItem, syncAllItem,  ...pageItems];
+            return [summary, syncAll, ...items];
         }
         return [];
     }
@@ -740,10 +762,9 @@ class PageTreeItem extends vscode.TreeItem {
 
 function deactivate() {
     for (const [uri, data] of activePageEditors) {
-        if (data.statusBarItem) {
-            data.statusBarItem.dispose();
-        }
         clearTimeout(data.timeout);
+        clearTimeout(data.originalTimeout);
+        if (data.statusBarItem) data.statusBarItem.dispose();
     }
     activePageEditors.clear();
 }
